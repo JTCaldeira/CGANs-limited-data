@@ -94,6 +94,8 @@ python calc_metrics.py --metrics=fid50k_full --data=~/datasets/ffhq.zip --mirror
 
 The first example looks up the training configuration and performs the same operation as if `--metrics=pr50k3_full` had been specified during training. The second example downloads a pre-trained network pickle, in which case the values of `--mirror` and `--data` must be specified explicitly.
 
+Note that in order to use CLIP-based metrics, you need to download the pre-trained [CLIP ViT-B/32](https://arxiv.org/abs/2103.00020) by OpenAI (shared through a GitHub [repository](https://github.com/openai/CLIP) and place it in  `models/clip-vit_b32.pkl`.
+
 See [StyleGAN2+ADA instructions](https://github.com/NVlabs/stylegan2-ada-pytorch/blob/main/README.md#quality-metrics) for more details on the available metrics. 
 
 ## Contact<a name="Contact"></a>
