@@ -20,7 +20,7 @@ Abstract: TODO
 
 * Linux and Windows are supported, but we recommend Linux for performance and compatibility reasons.
 * For a batch size of 64, we used an NVIDIA GeForce RTX 3090 GPU with 24GB of memory. Memory usage at the beginning of each run is about double of what is required throughout training due to `torch.backends.cudnn.benchmark`.
-* 64-bit Python 3.7 and PyTorch 1.7.1. See [https://pytorch.org/](https://pytorch.org/) for PyTorch install instructions.
+* 64-bit Python 3.7 and PyTorch<=1.8.2,>=1.7.1. See [https://pytorch.org/](https://pytorch.org/) for PyTorch install instructions.
 * CUDA toolkit 11.0 or later. Use at least version 11.1 if running on RTX 3090. (Why is a separate CUDA toolkit installation required?  See comments in [#2](https://github.com/NVlabs/stylegan2-ada-pytorch/issues/2#issuecomment-779457121).)
 * Python libraries: `pip install click requests tqdm pyspng ninja imageio-ffmpeg==0.4.3 psutil scipy wandb scikit-learn`. We use the Anaconda3 2020.11 distribution which installs most of these by default.
 * This project uses Weights and Biases (W&B) for optional visualization and logging. In addition to installing W&B, you need to create a free account on the [W&B website](https://wandb.ai/site/). Then, you must log in to your W&B account by running `wandb login` in the command line.
@@ -28,23 +28,80 @@ Abstract: TODO
 
 The code relies heavily on custom PyTorch extensions that are compiled on the fly using NVCC. On Windows, the compilation requires Microsoft Visual Studio. We recommend installing [Visual Studio Community Edition](https://visualstudio.microsoft.com/vs/) and adding it into `PATH` using `"C:\Program Files (x86)\Microsoft Visual Studio\<VERSION>\Community\VC\Auxiliary\Build\vcvars64.bat"`.
 
+## Installation<a name="Installation"></a>
+We recommend installing CUDA `11.3` and PyTorch `1.8.2`. The official environment installation is provided below.
+
+```bash
+conda env create -f environment.yml -y
+mkdir $CONDA_PREFIX/lib64  # CONDA_PREFIX should be <your-miniconda3-path</envs/cgan
+cp -Rs $CONDA_PREFIX/lib/* $CONDA_PREFIX/lib64
+pip3 install torch==1.8.2 torchvision==0.9.2 torchaudio==0.8.2 --extra-index-url https://download.pytorch.org/whl/lts/1.8/cu111
+pip3 install click==8.1.8 requests==2.31.0 tqdm==4.67.1 pyspng==0.1.3 ninja==1.11.1.4 imageio-ffmpeg==0.4.3 scipy==1.7.3
+cd $CONDA_PREFIX
+mkdir -p ./etc/conda/activate.d
+mkdir -p ./etc/conda/deactivate.d
+touch ./etc/conda/activate.d/env_vars.sh
+touch ./etc/conda/deactivate.d/env_vars.sh
+cat <<EOF > ./etc/conda/activate.d/env_vars.sh
+#!/bin/bash
+
+export _OLD_LD_LIBRARY_PATH=\${LD_LIBRARY_PATH}
+export _OLD_CPATH=\${CPATH}
+export _OLD_CUDA_HOME=\${CUDA_HOME}
+export _OLD_LIBRARY_PATH=\${LIBRARY_PATH}
+export LD_LIBRARY_PATH="\${CONDA_PREFIX}/lib"
+export CPATH="\${CONDA_PREFIX}/targets/x86_64-linux/include:\${CPATH}"
+export CUDA_HOME=""
+export LIBRARY_PATH="\${CONDA_PREFIX}/lib/stubs:\${LIBRARY_PATH}"
+EOF
+cat <<EOF > ./etc/conda/deactivate.d/env_vars.sh
+#!/bin/bash
+
+export LD_LIBRARY_PATH=\${_OLD_LD_LIBRARY_PATH}
+export CPATH=\${_OLD_CPATH}
+export CUDA_HOME=\${_OLD_CUDA_HOME}
+export LIBRARY_PATH=\${_OLD_LIBRARY_PATH}
+unset _OLD_LD_LIBRARY_PATH
+unset _OLD_CPATH
+unset _OLD_CUDA_HOME
+unset _OLD_LIBRARY_PATH
+EOF
+```
+
 ## Usage<a name="Usage"></a>
 
-This codebase is based on the PyTorch implementation of [StyleGAN2+ADA](https://github.com/NVlabs/stylegan2-ada-pytorch), so we strongly advise first reading its instructions. We also implement and adopt some code the following methods:
+This codebase is based on the PyTorch implementation of [StyleGAN2+ADA](https://github.com/NVlabs/stylegan2-ada-pytorch), so we strongly advise first reading its instructions. We also implement and adopt some code from the following methods:
 - Transitional-CGAN ([paper](https://arxiv.org/abs/2201.06578), [implementation](https://github.com/mshahbazi72/transitional-cGAN))
 - LeCam Regularizer ([paper](https://arxiv.org/abs/2104.03310))
 - Group Spectral Regularizer ([paper](https://arxiv.org/abs/2208.09932), [implementation](https://github.com/val-iisc/gSRGAN))
 - NoisyTwins ([paper](https://arxiv.org/abs/2304.05866), [implementation](https://github.com/val-iisc/NoisyTwins/tree/main))
 - UTLO ([paper](https://arxiv.org/abs/2402.17065), [implementation](https://github.com/khorrams/utlo/tree/main))
 
-##### Dataset Preparation<a name="Dataset-Preparation"></a>
+### Dataset Preparation<a name="Dataset-Preparation"></a>
 
-All datasets used in the paper can be found at TODO. However, to demonstrate how custom datasets may be created from folders containing images, we reproduce the steps used to create the `AnimalFace` dataset.
+All datasets used in the paper can be found at [our data repository](https://cloud.inesc-id.pt/public.php/dav/files/KEYmWdkqeeTfn7g). To download and prepare all datasets used in the survey, run:
+
+```bash
+mkdir -p datasest
+cd datasets
+wget https://cloud.inesc-id.pt/public.php/dav/files/KEYmWdkqeeTfn7g/animalface-lt.zip
+wget https://cloud.inesc-id.pt/public.php/dav/files/KEYmWdkqeeTfn7g/carnivores.zip
+wget https://cloud.inesc-id.pt/public.php/dav/files/KEYmWdkqeeTfn7g/flowers-lt.zip
+wget https://cloud.inesc-id.pt/public.php/dav/files/KEYmWdkqeeTfn7g/cifar-10_train.zip
+wget https://cloud.inesc-id.pt/public.php/dav/files/KEYmWdkqeeTfn7g/cifar-10_val.zip
+wget https://cloud.inesc-id.pt/public.php/dav/files/KEYmWdkqeeTfn7g/imagenet_lt_train.zip
+wget https://cloud.inesc-id.pt/public.php/dav/files/KEYmWdkqeeTfn7g/imagenet_lt_test.zip
+wget https://cloud.inesc-id.pt/public.php/dav/files/KEYmWdkqeeTfn7g/inat_lt_test.zip
+```
+
+All datasets can be left in their *compressed* (`.zip`) format, or can be further uncompressed using the `unzip` command. *CIFAR*, *ImageNet*, and *iNaturalist* datasets have an auxiliary file called `class_info.csv` that maps the original class IDs to the custom class IDs created and used by the dataset.
+
+For completeness we also demonstrate how custom datasets may also be created from folders containing images. We reproduce the steps used to create the `AnimalFace` dataset.
 
 Datasets are stored as uncompressed ZIP archives containing uncompressed PNG files and a metadata file `dataset.json` for labels. 
 
 The following command downloads and extracts the `AnimalFace` dataset.
-```.bash
+```bash
 wget https://vcla.stat.ucla.edu/people/zhangzhang-si/HiT/AnimalFace.zip
 unzip AnimalFace.zip -d ./
 rm -rf Image/Natural
@@ -52,22 +109,22 @@ rm AnimalFace.zip
 ```
 Custom datasets can be created from a folder containing images (each sub-directory containing images of one class in case of multi-class datasets) using `dataset_tool.py`; Here is an example of how to convert the dataset folder to the desired ZIP file:
 
-```.bash
-mkdir datasets
+```bash
+mkdir -p datasets
 python dataset_tool.py --source=Image/ --dest=datasets/animalface.zip --transform=center-crop --width=64 --height=64
 rm -rf Image/
 ```
-The above example reads the images from the image folder provided by `--src`, resizes the images to the sizes provided by `--width` and `--height`, and applys the transform `center-crop` to them. The resulting images along with the metadata (label information) are stored as a ZIP file determined by `--dest`.
+The above example reads the images from the image folder provided by `--src`, resizes the images to the sizes provided by `--width` and `--height`, and applies the transform `center-crop` to them. The resulting images along with the metadata (label information) are stored as a ZIP file determined by `--dest`.
 
-Please see [`python dataset_tool.py --help`](./docs/dataset-tool-help.txt) for more information. See [StyleGAN2+ADA instructions](https://github.com/NVlabs/stylegan2-ada-pytorch/blob/main/README.md#preparing-datasets) for more details on specific datasets or Legacy TFRecords datasets .
+Please see [`python dataset_tool.py --help`](./docs/dataset-tool-help.txt) for more information. See [StyleGAN2+ADA instructions](https://github.com/NVlabs/stylegan2-ada-pytorch/blob/main/README.md#preparing-datasets) for more details on specific datasets or Legacy TFRecords datasets.
 
 The created ZIP file can be passed to the training and evaluation code using `--data` argument.
 
-##### Training<a name="Training"></a>
+### Training<a name="Training"></a>
 
 After preparing the dataset, you can run the following command to start a training run.
 
-```.bash
+```bash
 python train.py --outdir=training_runs_af_sg2ada --data=~/datasets/animalface.zip  \
 --data_fname=lt_100.json --snap=50 --mirror=True --seed=42 --gpus=1 --batch=64 \
 --wandb_proj=af_sg2ada --metrics=fid50k_full,fidclip50k_full,prdc50k_full,cmmd30k_30k \
@@ -76,13 +133,15 @@ python train.py --outdir=training_runs_af_sg2ada --data=~/datasets/animalface.zi
 
 See [StyleGAN2+ADA instructions](https://github.com/NVlabs/stylegan2-ada-pytorch/blob/main/README.md#training-new-networks) for more details on the arguments, configurations amd hyper-parammeters. Please refer to [`python train.py --help`](./docs/train-help.txt) for the full list of arguments.
 
-##### Evaluation<a name="Evaluation"></a>
+To reproduce the survey's experiments, follow [this guide](REPRODUCE.md).
+
+### Evaluation<a name="Evaluation"></a>
 
 By default, `train.py` automatically computes the FID for each network pickle exported during training. More metrics can be added to the argument `--metrics` as a comma-separated list. To monitor the training, you can inspect the log.txt an JSON files (e.g. `metric-fid50k_full.jsonl` for FID) saved in the ouput directory. Alternatively, you can inspect WandB or Tensorboard logs. Specifying the options `wandb_projname` and `wandb_groupname` is required to use WandB.
 
 Metric computation can be disabled with `--metrics=none` to speed up the training (3%&ndash;9%). Additional metrics can also be computed after training from a network pickle:
 
-```.bash
+```bash
 # Previous training run: look up options automatically, save result to JSONL file.
 python calc_metrics.py --metrics=pr50k3_full \
     --network=~/training-runs/00000-ffhq10k-res64-auto1/network-snapshot-000000.pkl
